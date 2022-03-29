@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 
 @app.route("/heartbeat", methods=['GET'])
-def heartbeat(): 
+def heartbeat():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ret = "heartbeat returned at " + dt
     return ret
@@ -34,3 +34,17 @@ def get_artist_global_rating():
 @app.route("/all-global-ratings", methods=['GET'])
 def get_all_global_ratings():
     return "get all global ratings"
+
+
+@app.route("/admin-add-artist", methods=['POST'])
+def admin_add_artist():
+    pass
+
+
+@app.route("admin-update-artist", methods=['POST'])
+def admin_update_artist():
+    pass
+
+
+if __name__ == "__main__":
+    app.run()

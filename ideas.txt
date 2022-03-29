@@ -1,0 +1,18 @@
+Design Decisions:
+    - User Login or use IP
+        - use IP for now, we can add users later
+
+TABLE: RATINGS
+
+|-- Rating ID (Key) --|-- User (Key) --|-- Timestamp --|-- Artist (Key) --|-- Baddie --|-- Banger --|
+* Currently, User is just IP Address
+* Rating ID is just an enumeration of the ratings, this might be an issue in the future
+
+TABLE: ARTISTS - need security for admin updating artist
+|-- Artist (Key) --|-- Spotify URL --|
+
+TABLE: USERS
+|-- User (Key) --|-- Password --|
+
+
+
