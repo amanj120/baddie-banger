@@ -1,18 +1,1 @@
-[
-  {
-    "id": 0,
-    "user": "aman",
-    "timestamp": "2022-03-29T19:29:28+00:00",
-    "artist": "Frank Ocean",
-    "baddie": 80,
-    "banger": 100
-  },
-  {
-    "id": 0,
-    "user": "aman",
-    "timestamp": "2022-03-29T19:29:28+00:00",
-    "artist": "UMI",
-    "baddie": 92,
-    "banger": 85
-  }
-]
+[]
