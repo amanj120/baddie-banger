@@ -5,15 +5,16 @@ from datetime import datetime
 
 import firebase_admin
 import jsonschema
+import spotipy
 from firebase_admin import credentials
 from firebase_admin import firestore
-from flask import Flask, request
-from google import cloud
+from flask import Flask, request, render_template
+from flask_httpauth import HTTPBasicAuth
+from google.cloud.exceptions import Conflict
 from spotipy.oauth2 import SpotifyClientCredentials
-import spotipy
-
 
 app = Flask(__name__)
+auth = HTTPBasicAuth()
 
 with open("schemas/rating-schema.json", "r") as _ratingSchemaFile:
     ratingSchema = json.load(_ratingSchemaFile)
@@ -22,18 +23,19 @@ with open("spotipy-cred.json", "r") as _spotifyCredFile:
     spotipy_cred = json.load(_spotifyCredFile)
     client_id = spotipy_cred["client_id"]
     client_secret = spotipy_cred["client_secret"]
-    client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
-    sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 cred = credentials.Certificate('key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-
 _users = db.collection("users")
 _artists = db.collection("artists")
 
 username_pattern = r"^[a-zA-Z0-9-]{1,32}$"
+
+
+def md5hex(password):
+    return hashlib.md5(password.encode()).hexdigest()
 
 
 @app.route("/heartbeat", methods=['GET'])
@@ -43,12 +45,20 @@ def heartbeat():
     )
 
 
+# https://flask-httpauth.readthedocs.io/en/latest/
+@auth.verify_password
+def verify_password(username, password):
+    if _users.document(username).get().exists:
+        if _users.document(username).get().to_dict()["password"] == md5hex(password):
+            return username
+
+
 @app.route("/create-user", methods=['POST'])
 def create_user():
     data = request.json
     user = data["user"]
     password = data["password"] # todo: password validation
-    password_hash = hashlib.md5(password.encode()).hexdigest()
+    password_hash = md5hex(password)
 
     if not bool(re.match(username_pattern, user)):
         return "username must be between 1-32 alphanumeric characters (a-z, A-Z, 0-9) and dashes (-)"
@@ -60,11 +70,12 @@ def create_user():
             }, document_id=user
         )
         return "user {} created".format(user)
-    except cloud.exceptions.Conflict:
+    except Conflict:
         return "user already exists"
 
 
 @app.route("/rate-artist", methods=['POST'])
+@auth.login_required
 def rate_artist():
     rating = request.json
     try:
@@ -72,13 +83,13 @@ def rate_artist():
     except jsonschema.exceptions.ValidationError as err:
         return "rating has following error: {}".format(str(err))
 
-    user = rating["user"]
+    user = auth.current_user()
     artist = rating["artist"]
 
     if not _users.document(user).get().exists:
-        return "user does not exist"
+        return "user {} does not exist".format(user)
     if not _artists.document(artist).get().exists:
-        return "artist does not exist"
+        return "artist {} does not exist".format(artist)
 
     rating_ref = _users.document(user).collection("ratings").document(artist)
     rating_body = {
@@ -89,11 +100,11 @@ def rate_artist():
     if rating_ref.get().exists:
         rating_ref.set(rating_body)
         # todo: update artist
-        return "rating successfully updated"
+        return "user {} rating successfully updated for artist {}".format(user, artist)
     else:
         rating_ref.create(rating_body)
         # todo: update artist
-        return "rating successfully recorded"
+        return "user {} rating successfully recorded for artist {}".format(user, artist)
 
 
 @app.route("/user-ratings/<user>", methods=['GET'])
@@ -110,6 +121,7 @@ def add_artist():
     spotify = data["spotify"]
 
     try:
+        client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
         sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
         artist_data = sp.artist(spotify)
         artist = artist_data["name"]
@@ -126,8 +138,13 @@ def add_artist():
             }, document_id=artist
         )
         return "artist {} created".format(artist)
-    except cloud.exceptions.Conflict:
-        return "artist already exists"
+    except Conflict: # google.cloud.exceptions.Conflict
+        return "artist {} already exists".format(artist)
+
+
+@app.route("/", methods=['GET'])
+def landing_page():
+    return render_template("landing.html")
 
 
 if __name__ == "__main__":
