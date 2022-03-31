@@ -2,6 +2,24 @@ Design Decisions:
     - User Login or use IP
         - use IP for now, we can add users later
 
+use `pipreqs /path/to/project --force` to overwrite requirements.txt with accurate info
+
+more APIs:
+
+
+
+@app.route("/artist-ratings/<artist>", methods=['GET'])
+def get_artist_global_rating(artist):
+    get global ratings for an artist
+
+@app.route("/random-unrated-artist", methods=['GET'])
+def get_random_unrated_artist():
+    get a random artist the user hasn't rated yet
+
+@app.route("/all-global-ratings", methods=['GET'])
+def get_all_global_ratings():
+    get all ratings for all artists
+
 SQL Persistence Schema:
 TABLE: RATINGS
 |-- Rating ID (Key) --|-- User (Key) --|-- Timestamp --|-- Artist (Key) --|-- Baddie --|-- Banger --|

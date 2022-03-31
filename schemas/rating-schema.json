@@ -3,8 +3,8 @@
     "properties": {
         "user": {"type": "string"},
         "artist": {"type": "string"},
-        "baddie": {"type": "number"},
-        "banger": {"type": "number"}
+        "baddie": {"type": "number", "minimum":  0, "maximum": 30},
+        "banger": {"type": "number", "minimum":  0, "maximum": 30}
     },
     "required": ["user", "artist", "baddie", "banger"],
     "additionalProperties": false

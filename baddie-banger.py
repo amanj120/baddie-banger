@@ -1,12 +1,14 @@
-from flask import Flask, request, jsonify
-from datetime import datetime
+import hashlib
 import json
-import jsonschema
+import re
+from datetime import datetime
+
 import firebase_admin
+import jsonschema
 from firebase_admin import credentials
 from firebase_admin import firestore
+from flask import Flask, request
 from google import cloud
-import hashlib
 
 app = Flask(__name__)
 
@@ -24,27 +26,31 @@ db = firestore.client()
 _users = db.collection("users")
 _artists = db.collection("artists")
 
+username_pattern = r"^[a-zA-Z0-9-]{1,32}$"
+
 
 @app.route("/heartbeat", methods=['GET'])
 def heartbeat():
-    dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ret = "heartbeat returned at " + dt
-    return ret
+    return "heartbeat returned at {}".format(
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
 
 
 @app.route("/create-user", methods=['POST'])
 def create_user():
     data = request.json
-    user = data["user"]  # todo: username validation
-    password = data["password"]
+    user = data["user"]
+    password = data["password"] # todo: password validation
     password_hash = hashlib.md5(password.encode()).hexdigest()
+
+    if not bool(re.match(username_pattern, user)):
+        return "username must be between 1-32 alphanumeric characters (a-z, A-Z, 0-9) and dashes (-)"
 
     try:
         _users.add(
             {
                 "password": password_hash
-            },
-            document_id=user
+            }, document_id=user
         )
         return "user {} created".format(user)
     except cloud.exceptions.Conflict:
@@ -85,26 +91,14 @@ def rate_artist():
 
 @app.route("/user-ratings/<user>", methods=['GET'])
 def get_user_ratings(user):
+    # todo: compile all ratings for a user into a single dictionary
     pass
-
-
-@app.route("/artist-ratings/<artist>", methods=['GET'])
-def get_artist_global_rating(artist):
-    pass
-
-
-@app.route("/random-unrated-artist", methods=['GET'])
-def get_random_unrated_artist():
-    return "get random unrated artist"
-
-
-@app.route("/all-global-ratings", methods=['GET'])
-def get_all_global_ratings():
-    return "get all global ratings"
 
 
 @app.route("/admin-add-artist", methods=['POST'])
 def admin_add_artist():
+    # todo: use spotify URI and use that to get the artist name
+    # todo: include a 31x31 array in artist information to store all ratings
     data = request.json
     artist = data["artist"]  # todo: artist name validation
     spotify = data["spotify"]
@@ -116,18 +110,11 @@ def admin_add_artist():
                 "sum_baddie": 0,
                 "sum_banger": 0,
                 "spotify": spotify,
-            },
-            document_id=artist
+            }, document_id=artist
         )
         return "artist {} created".format(artist)
     except cloud.exceptions.Conflict:
         return "artist already exists"
-
-
-@app.route("/admin-update-artist", methods=['POST'])
-def admin_update_artist():
-    pass
-
 
 
 if __name__ == "__main__":
