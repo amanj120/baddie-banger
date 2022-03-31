@@ -1,13 +1,11 @@
 {
     "type": "object",
     "properties": {
-        "id": {"type": "number"},
         "user": {"type": "string"},
-        "timestamp": {"type": "string"},
         "artist": {"type": "string"},
         "baddie": {"type": "number"},
         "banger": {"type": "number"}
     },
-    "required": ["id", "user", "timestamp", "artist", "baddie", "banger"],
+    "required": ["user", "artist", "baddie", "banger"],
     "additionalProperties": false
 }

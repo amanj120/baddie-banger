@@ -2,8 +2,8 @@ Design Decisions:
     - User Login or use IP
         - use IP for now, we can add users later
 
+SQL Persistence Schema:
 TABLE: RATINGS
-
 |-- Rating ID (Key) --|-- User (Key) --|-- Timestamp --|-- Artist (Key) --|-- Baddie --|-- Banger --|
 * Currently, User is just IP Address
 * Rating ID is just an enumeration of the ratings, this might be an issue in the future
@@ -13,6 +13,38 @@ TABLE: ARTISTS - need security for admin updating artist
 
 TABLE: USERS
 |-- User (Key) --|-- Password --|
+
+
+Firestore Persistence Schema (free):
+
+user-ratings (collection):
+    _metadata (document)
+        all-users (field) # list of all users
+    user-1 (document):
+        name (field)
+        password (field)
+        all-ratings (field)
+        ratings (collection): # note, you need to create a _dummy rating on creation of a user
+            id (document)
+                timestamp (field)
+                artist (field)
+                baddie (field)
+                banger (field)
+        ...
+    user-2
+    ...
+
+artists (collection):
+    _metadata (document)
+        all-artists (field) # list of all artists
+    artist-1 (document):
+        name (field)
+        spotify (field)
+        num-ratings (field)
+        sum-baddie (field)
+        sum-banger (field)
+    ...
+
 
 
 
