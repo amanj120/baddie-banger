@@ -9,19 +9,26 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 from flask import Flask, request
 from google import cloud
+from spotipy.oauth2 import SpotifyClientCredentials
+import spotipy
+
 
 app = Flask(__name__)
 
 with open("schemas/rating-schema.json", "r") as _ratingSchemaFile:
     ratingSchema = json.load(_ratingSchemaFile)
     _ratingSchemaFile.close()
-with open("schemas/artist-schema.json", "r") as _artistSchemaFile:
-    artistSchema = json.load(_artistSchemaFile)
-    _artistSchemaFile.close()
+with open("spotipy-cred.json", "r") as _spotifyCredFile:
+    spotipy_cred = json.load(_spotifyCredFile)
+    client_id = spotipy_cred["client_id"]
+    client_secret = spotipy_cred["client_secret"]
+    client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
+    sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 cred = credentials.Certificate('key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
+
 
 _users = db.collection("users")
 _artists = db.collection("artists")
@@ -95,13 +102,19 @@ def get_user_ratings(user):
     pass
 
 
-@app.route("/admin-add-artist", methods=['POST'])
-def admin_add_artist():
+@app.route("/add-artist", methods=['POST'])
+def add_artist():
     # todo: use spotify URI and use that to get the artist name
     # todo: include a 31x31 array in artist information to store all ratings
     data = request.json
-    artist = data["artist"]  # todo: artist name validation
     spotify = data["spotify"]
+
+    try:
+        sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+        artist_data = sp.artist(spotify)
+        artist = artist_data["name"]
+    except spotipy.client.SpotifyException as err:
+        return "spotipy error: {}".format(err)
 
     try:
         _artists.add(
