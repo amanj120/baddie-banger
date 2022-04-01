@@ -48,9 +48,10 @@ def heartbeat():
 # https://flask-httpauth.readthedocs.io/en/latest/
 @auth.verify_password
 def verify_password(username, password):
-    if _users.document(username).get().exists:
-        if _users.document(username).get().to_dict()["password"] == md5hex(password):
-            return username
+    if bool(re.match(username_pattern, username)):
+        if _users.document(username).get().exists:
+            if _users.document(username).get().to_dict()["password"] == md5hex(password):
+                return username
 
 
 @app.route("/create-user", methods=['POST'])
@@ -143,6 +144,7 @@ def add_artist():
 
 
 @app.route("/", methods=['GET'])
+@auth.login_required
 def landing_page():
     return render_template("landing.html")
 
