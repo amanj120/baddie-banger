@@ -1,7 +1,7 @@
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import firebase_admin
 import spotipy
@@ -31,6 +31,23 @@ session_user_key = "user"
 session_last_interacted_key = "last_interacted"
 
 
+@app.before_request
+def refresh_session():
+    if session_last_interacted_key in session.keys() and session[session_last_interacted_key] is not None:
+        last = datetime.fromisoformat(str(session[session_last_interacted_key]))
+        current = datetime.utcnow()
+        delta = (current - last).total_seconds()
+        print(last.isoformat())
+        if delta > 3600: # one hour
+            session[session_user_key] = None
+            session[session_last_interacted_key] = None
+            return redirect(url_for(login))
+        else:
+            session[session_last_interacted_key] = str(current)
+    else:
+        return redirect(url_for(login))
+
+
 def md5hex(password):
     return hashlib.md5(password.encode()).hexdigest()
 
@@ -45,9 +62,7 @@ def verify_password(username, password):
 
 @app.route("/heartbeat", methods=['GET'])
 def heartbeat():
-    return "heartbeat returned at {}".format(
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )
+    return "heartbeat returned at {}".format(datetime.now().isoformat())
 
 
 @app.route("/create-user", methods=['GET', 'POST'])
@@ -65,9 +80,7 @@ def create_user():
 
     try:
         _users.add(
-            {
-                "password": password_hash
-            }, document_id=user
+            {"password": password_hash}, document_id=user
         )
         return "user {} created".format(user)
     except Conflict:
@@ -83,8 +96,9 @@ def logout():
 
 @app.route("/rate-artist", methods=['GET', 'POST'])
 def rate_artist():
-    if session["user"] is None:
-        return "must login to continue"
+    if session_user_key in session.keys():
+        if session[session_user_key] is None:
+            return "must login to continue"
 
     user = session[session_user_key]
 
@@ -165,7 +179,8 @@ def login():
         username = verify_password(login_info["username"], login_info["password"])
         if username is not None:
             session[session_user_key] = username
-            session[session_last_interacted_key] = datetime.utcnow().isoformat()
+            # todo: session expiration
+            session[session_last_interacted_key] = str(datetime.utcnow().isoformat())
             print(session)
             return redirect(url_for("rate_artist"))
         else:
