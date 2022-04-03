@@ -1,7 +1,8 @@
 import hashlib
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
+import time
 
 import firebase_admin
 import spotipy
@@ -25,6 +26,7 @@ db = firestore.client()
 
 _users = db.collection("users")
 _artists = db.collection("artists")
+artist_list = sorted([doc.id for doc in _artists.list_documents()] + [""])
 
 username_pattern = r"^[a-zA-Z0-9-]{1,32}$"
 session_user_key = "user"
@@ -34,18 +36,15 @@ session_last_interacted_key = "last_interacted"
 @app.before_request
 def refresh_session():
     if session_last_interacted_key in session.keys() and session[session_last_interacted_key] is not None:
-        last = datetime.fromisoformat(str(session[session_last_interacted_key]))
-        current = datetime.utcnow()
-        delta = (current - last).total_seconds()
-        print(last.isoformat())
-        if delta > 3600: # one hour
+        last = int(session[session_last_interacted_key])
+        current = int(time.time())
+        delta = (current - last)
+        print(datetime.utcfromtimestamp(last))
+        if delta > 600: # ten mins of inactivity -> logout
             session[session_user_key] = None
             session[session_last_interacted_key] = None
-            return redirect(url_for(login))
         else:
             session[session_last_interacted_key] = str(current)
-    else:
-        return redirect(url_for(login))
 
 
 def md5hex(password):
@@ -102,8 +101,9 @@ def rate_artist():
 
     user = session[session_user_key]
 
+
     if request.method == 'GET':
-        return render_template("rate-artist.html", user=user)
+        return render_template("rate-artist.html", user=user, artist_list=artist_list)
 
     rating = request.form
     artist = rating["artist"]
@@ -145,8 +145,14 @@ def add_artist():
 
     # todo: use spotify URI and use that to get the artist name
     # todo: include a 31x31 array in artist information to store all ratings
-    data = request.form
-    spotify = data["spotify"]
+    spotify = None
+    try:
+        spotify = request.form["spotify"]
+    except KeyError:
+        spotify = request.json["spotify"]
+    finally:
+        if spotify is None:
+            return "invalid POST data (no form or json)"
 
     try:
         client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
@@ -165,6 +171,8 @@ def add_artist():
                 "spotify": spotify,
             }, document_id=artist
         )
+        global artist_list # todo: make this into metadata in firestore
+        artist_list = sorted([doc.id for doc in _artists.list_documents()] + [""])
         return "artist {} created".format(artist)
     except Conflict:  # google.cloud.exceptions.Conflict
         return "artist {} already exists".format(artist)
@@ -180,7 +188,7 @@ def login():
         if username is not None:
             session[session_user_key] = username
             # todo: session expiration
-            session[session_last_interacted_key] = str(datetime.utcnow().isoformat())
+            session[session_last_interacted_key] = int(time.time())
             print(session)
             return redirect(url_for("rate_artist"))
         else:

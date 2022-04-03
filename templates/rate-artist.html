@@ -1,18 +1,24 @@
 <!DOCTYPE html>
-    <html>
-        <head>
-            <!-- head definitions go here -->
-        </head>
-        <body>
+<html>
+    <head>
+    <!-- head definitions go here -->
+    </head>
+    <body>
         <a href="http://localhost:5000/add-artist">Add Artist</a>
         <a href="http://localhost:5000/logout">Logout</a>
         <p>current user {{user}}</p>
         <form action = "http://localhost:5000/rate-artist" method = "post">
-         <p>Rate:</p>
-         <p>Artist: <input type = "text" name = "artist" value = ""/></p>
-         <p>Baddie: <input type = "range" min = 0 max = 30 name = "baddie" /></p>
-         <p>Banger: <input type = "range" min = 0 max = 30 name = "banger" /></p>
-         <p><input type = "submit" value = "submit" /></p>
-      </form>
-        </body>
-    </html>
+            <p>Rate:</p>
+            <!--         <p>Artist: <input type = "text" name = "artist" value = ""/></p>-->
+            <label for="artist">Artist:</label>
+            <select name="artist" id="artist">
+                {% for artist in artist_list %}
+                    <option value="{{ artist }}">{{ artist }}</option>
+                {% endfor %}
+            </select>
+            <p>Baddie: <input type = "range" min = 0 max = 30 name = "baddie" /></p>
+            <p>Banger: <input type = "range" min = 0 max = 30 name = "banger" /></p>
+            <p><input type = "submit" value = "submit" /></p>
+        </form>
+    </body>
+</html>
