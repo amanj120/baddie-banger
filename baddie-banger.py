@@ -7,20 +7,19 @@ import firebase_admin
 import spotipy
 from firebase_admin import credentials
 from firebase_admin import firestore
-from flask import Flask, request, render_template, redirect, url_for
-from flask_httpauth import HTTPBasicAuth
+from flask import Flask, request, render_template, redirect, url_for, session
 from google.cloud.exceptions import Conflict
 from spotipy.oauth2 import SpotifyClientCredentials
 
 app = Flask(__name__)
-auth = HTTPBasicAuth()
 
-with open("spotipy-cred.json", "r") as _spotifyCredFile:
-    spotipy_cred = json.load(_spotifyCredFile)
-    client_id = spotipy_cred["client_id"]
-    client_secret = spotipy_cred["client_secret"]
+with open("security.json", "r") as _securityCredFile:
+    security = json.load(_securityCredFile)
+    client_id = security["spotify_client_id"]
+    client_secret = security["spotify_client_secret"]
+    app.config["SECRET_KEY"] = security["secret_key"]
 
-cred = credentials.Certificate('key.json')
+cred = credentials.Certificate('security.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -28,10 +27,20 @@ _users = db.collection("users")
 _artists = db.collection("artists")
 
 username_pattern = r"^[a-zA-Z0-9-]{1,32}$"
+session_user_key = "user"
+session_last_interacted_key = "last_interacted"
 
 
 def md5hex(password):
     return hashlib.md5(password.encode()).hexdigest()
+
+
+def verify_password(username, password):
+    if bool(re.match(username_pattern, username)):
+        if _users.document(username).get().exists:
+            if _users.document(username).get().to_dict()["password"] == md5hex(password):
+                return username
+    return None
 
 
 @app.route("/heartbeat", methods=['GET'])
@@ -41,19 +50,13 @@ def heartbeat():
     )
 
 
-# https://flask-httpauth.readthedocs.io/en/latest/
-@auth.verify_password
-def verify_password(username, password):
-    if bool(re.match(username_pattern, username)):
-        if _users.document(username).get().exists:
-            if _users.document(username).get().to_dict()["password"] == md5hex(password):
-                return username
-
-
-@app.route("/create-user", methods=['POST'])
+@app.route("/create-user", methods=['GET', 'POST'])
 def create_user():
-    data = request.json
-    user = data["user"]
+    if request.method == 'GET':
+        return render_template("create-user.html")
+
+    data = request.form
+    user = data["username"]
     password = data["password"]  # todo: password validation
     password_hash = md5hex(password)
 
@@ -71,14 +74,24 @@ def create_user():
         return "user already exists"
 
 
+@app.route("/logout", methods=['GET'])
+def logout():
+    session[session_user_key] = None
+    session[session_last_interacted_key] = None
+    return redirect(url_for("login"))
+
+
 @app.route("/rate-artist", methods=['GET', 'POST'])
-@auth.login_required
 def rate_artist():
+    if session["user"] is None:
+        return "must login to continue"
+
+    user = session[session_user_key]
+
     if request.method == 'GET':
-        return render_template("rate-artist.html")
+        return render_template("rate-artist.html", user=user)
 
     rating = request.form
-    user = auth.current_user()
     artist = rating["artist"]
 
     if artist is None or artist == "":
@@ -150,8 +163,13 @@ def login():
     else:
         login_info = request.form
         username = verify_password(login_info["username"], login_info["password"])
-        auth.
-        return redirect(url_for("rate_artist"))
+        if username is not None:
+            session[session_user_key] = username
+            session[session_last_interacted_key] = datetime.utcnow().isoformat()
+            print(session)
+            return redirect(url_for("rate_artist"))
+        else:
+            return "User could not be authenticated"
 
 
 if __name__ == "__main__":

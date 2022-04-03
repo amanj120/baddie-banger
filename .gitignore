@@ -3,6 +3,5 @@
 .ipynb_checkpoints
 .ipynb_checkpoints/*
 __pycache__
-key.json
 .cache
-spotipy-cred.json
+security.json
