@@ -7,7 +7,7 @@ import firebase_admin
 import spotipy
 from firebase_admin import credentials
 from firebase_admin import firestore
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, url_for
 from flask_httpauth import HTTPBasicAuth
 from google.cloud.exceptions import Conflict
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -143,10 +143,15 @@ def add_artist():
         return "artist {} already exists".format(artist)
 
 
-@app.route("/", methods=['GET'])
-@auth.login_required
-def landing_page():
-    return render_template("landing.html")
+@app.route("/", methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template("login.html")
+    else:
+        login_info = request.form
+        username = verify_password(login_info["username"], login_info["password"])
+        auth.
+        return redirect(url_for("rate_artist"))
 
 
 if __name__ == "__main__":
