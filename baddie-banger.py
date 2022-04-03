@@ -75,15 +75,18 @@ def create_user():
     password_hash = md5hex(password)
 
     if not bool(re.match(username_pattern, user)):
-        return "username must be between 1-32 alphanumeric characters (a-z, A-Z, 0-9) and dashes (-)"
+        message = "username must be between 1-32 alphanumeric characters (a-z, A-Z, 0-9) and dashes (-)"
+        return render_template("homepage.html", message=message)
 
     try:
         _users.add(
             {"password": password_hash}, document_id=user
         )
-        return "user {} created".format(user)
+        message = "user {} created".format(user)
     except Conflict:
-        return "user already exists"
+        message = "user already exists"
+
+    return render_template("homepage.html", message=message)
 
 
 @app.route("/logout", methods=['GET'])
@@ -97,10 +100,10 @@ def logout():
 def rate_artist():
     if session_user_key in session.keys():
         if session[session_user_key] is None:
-            return "must login to continue"
+            message = "must login to continue"
+            return render_template("homepage.html", message=message)
 
     user = session[session_user_key]
-
 
     if request.method == 'GET':
         return render_template("rate-artist.html", user=user, artist_list=artist_list)
@@ -109,12 +112,15 @@ def rate_artist():
     artist = rating["artist"]
 
     if artist is None or artist == "":
-        return "artist field must not be blank"
+        message = "artist field must not be blank"
+        return render_template("homepage.html", message=message)
 
     if not _users.document(user).get().exists:
-        return "user {} does not exist".format(user)
+        message = "user {} does not exist".format(user)
+        return render_template("homepage.html", message=message)
     if not _artists.document(artist).get().exists:
-        return "artist {} does not exist".format(artist)
+        message = "artist {} does not exist".format(artist)
+        return render_template("homepage.html", message=message)
 
     rating_ref = _users.document(user).collection("ratings").document(artist)
     rating_body = {
@@ -125,11 +131,12 @@ def rate_artist():
     if rating_ref.get().exists:
         rating_ref.set(rating_body)
         # todo: update artist
-        return "user {} rating successfully updated for artist {}".format(user, artist)
+        message = "user {} rating successfully updated for artist {}".format(user, artist)
     else:
         rating_ref.create(rating_body)
         # todo: update artist
-        return "user {} rating successfully recorded for artist {}".format(user, artist)
+        message = "user {} rating successfully recorded for artist {}".format(user, artist)
+    return render_template("homepage.html", message=message)
 
 
 @app.route("/user-ratings/<user>", methods=['GET'])
@@ -152,15 +159,16 @@ def add_artist():
         spotify = request.json["spotify"]
     finally:
         if spotify is None:
-            return "invalid POST data (no form or json)"
-
+            message = "invalid POST data (no form or json)"
+            return render_template("homepage.html", message=message)
     try:
         client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
         sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
         artist_data = sp.artist(spotify)
         artist = artist_data["name"]
     except spotipy.client.SpotifyException as err:
-        return "spotipy error: {}".format(err)
+        message = "spotipy error: {}".format(err)
+        return render_template("homepage.html", message=message)
 
     try:
         _artists.add(
@@ -173,9 +181,10 @@ def add_artist():
         )
         global artist_list # todo: make this into metadata in firestore
         artist_list = sorted([doc.id for doc in _artists.list_documents()] + [""])
-        return "artist {} created".format(artist)
+        message = "artist {} created".format(artist)
     except Conflict:  # google.cloud.exceptions.Conflict
-        return "artist {} already exists".format(artist)
+        message = "artist {} already exists".format(artist)
+    return render_template("homepage.html", message=message)
 
 
 @app.route("/", methods=['GET', 'POST'])
@@ -192,7 +201,8 @@ def login():
             print(session)
             return redirect(url_for("rate_artist"))
         else:
-            return "User could not be authenticated"
+            message = "User could not be authenticated"
+            return render_template("homepage.html", message=message)
 
 
 if __name__ == "__main__":
