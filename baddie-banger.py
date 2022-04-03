@@ -4,7 +4,6 @@ import re
 from datetime import datetime
 
 import firebase_admin
-import jsonschema
 import spotipy
 from firebase_admin import credentials
 from firebase_admin import firestore
@@ -16,9 +15,6 @@ from spotipy.oauth2 import SpotifyClientCredentials
 app = Flask(__name__)
 auth = HTTPBasicAuth()
 
-with open("schemas/rating-schema.json", "r") as _ratingSchemaFile:
-    ratingSchema = json.load(_ratingSchemaFile)
-    _ratingSchemaFile.close()
 with open("spotipy-cred.json", "r") as _spotifyCredFile:
     spotipy_cred = json.load(_spotifyCredFile)
     client_id = spotipy_cred["client_id"]
@@ -58,7 +54,7 @@ def verify_password(username, password):
 def create_user():
     data = request.json
     user = data["user"]
-    password = data["password"] # todo: password validation
+    password = data["password"]  # todo: password validation
     password_hash = md5hex(password)
 
     if not bool(re.match(username_pattern, user)):
@@ -75,17 +71,18 @@ def create_user():
         return "user already exists"
 
 
-@app.route("/rate-artist", methods=['POST'])
+@app.route("/rate-artist", methods=['GET', 'POST'])
 @auth.login_required
 def rate_artist():
-    rating = request.json
-    try:
-        jsonschema.validate(instance=rating, schema=ratingSchema)
-    except jsonschema.exceptions.ValidationError as err:
-        return "rating has following error: {}".format(str(err))
+    if request.method == 'GET':
+        return render_template("rate-artist.html")
 
+    rating = request.form
     user = auth.current_user()
     artist = rating["artist"]
+
+    if artist is None or artist == "":
+        return "artist field must not be blank"
 
     if not _users.document(user).get().exists:
         return "user {} does not exist".format(user)
@@ -94,9 +91,9 @@ def rate_artist():
 
     rating_ref = _users.document(user).collection("ratings").document(artist)
     rating_body = {
-                "baddie": rating["baddie"],
-                "banger": rating["banger"],
-            }
+        "baddie": rating["baddie"],
+        "banger": rating["banger"],
+    }
 
     if rating_ref.get().exists:
         rating_ref.set(rating_body)
@@ -114,11 +111,14 @@ def get_user_ratings(user):
     pass
 
 
-@app.route("/add-artist", methods=['POST'])
+@app.route("/add-artist", methods=['GET', 'POST'])
 def add_artist():
+    if request.method == 'GET':
+        return render_template("add-artist.html")
+
     # todo: use spotify URI and use that to get the artist name
     # todo: include a 31x31 array in artist information to store all ratings
-    data = request.json
+    data = request.form
     spotify = data["spotify"]
 
     try:
@@ -139,7 +139,7 @@ def add_artist():
             }, document_id=artist
         )
         return "artist {} created".format(artist)
-    except Conflict: # google.cloud.exceptions.Conflict
+    except Conflict:  # google.cloud.exceptions.Conflict
         return "artist {} already exists".format(artist)
 
 
