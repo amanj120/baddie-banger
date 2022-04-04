@@ -53,9 +53,9 @@ def md5hex(password):
 
 def verify_password(username, password):
     if bool(re.match(username_pattern, username)):
-        if _users.document(username).get().exists:
-            if _users.document(username).get().to_dict()["password"] == md5hex(password):
-                return username
+        user_doc = _users.document(username).get()
+        if user_doc.exists and user_doc.to_dict()["password"] == md5hex(password):
+            return username
     return None
 
 
