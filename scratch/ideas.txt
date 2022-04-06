@@ -6,6 +6,10 @@ use `pipreqs /path/to/project --force` to overwrite requirements.txt with accura
 
 more APIs:
 
+https://cloud.google.com/python/docs/reference/firestore/latest
+
+https://firebase.google.com/docs/firestore/quotas
+
 
 
 @app.route("/artist-ratings/<artist>", methods=['GET'])

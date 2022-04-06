@@ -26,7 +26,13 @@ db = firestore.client()
 
 _users = db.collection("users")
 _artists = db.collection("artists")
-artist_list = sorted([doc.id for doc in _artists.list_documents()] + [""])
+_artist_list = db.collection("metadata").document("artist_list")
+
+all_artist_map = {
+    doc.id: doc.get().to_dict()["spotify"] for doc in _artists.list_documents()
+}
+all_artist_list = list(all_artist_map.keys())
+_artist_list.set({"artist_list": all_artist_map})
 
 username_pattern = r"^[a-zA-Z0-9-]{1,32}$"
 session_user_key = "user"
@@ -40,7 +46,7 @@ def refresh_session():
         current = int(time.time())
         delta = (current - last)
         print(datetime.utcfromtimestamp(last))
-        if delta > 600: # ten mins of inactivity -> logout
+        if delta > 600:  # ten mins of inactivity -> logout
             session[session_user_key] = None
             session[session_last_interacted_key] = None
         else:
@@ -80,7 +86,10 @@ def create_user():
 
     try:
         _users.add(
-            {"password": password_hash}, document_id=user
+            {
+                "password": password_hash,
+                "ratings": dict()
+            }, document_id=user
         )
         message = "user {} created".format(user)
     except Conflict:
@@ -98,44 +107,65 @@ def logout():
 
 @app.route("/rate-artist", methods=['GET', 'POST'])
 def rate_artist():
-    if session_user_key in session.keys():
-        if session[session_user_key] is None:
-            message = "must login to continue"
-            return render_template("homepage.html", message=message)
+    if session_user_key not in session.keys() or session[session_user_key] is None:
+        return render_template("homepage.html", message="must login to continue")
 
     user = session[session_user_key]
 
     if request.method == 'GET':
+        artist_list = sorted(all_artist_list + [""])
         return render_template("rate-artist.html", user=user, artist_list=artist_list)
 
     rating = request.form
     artist = rating["artist"]
+    baddie = int(rating["baddie"])
+    banger = int(rating["banger"])
 
     if artist is None or artist == "":
-        message = "artist field must not be blank"
-        return render_template("homepage.html", message=message)
+        return render_template("homepage.html", message="artist field must not be blank")
 
-    if not _users.document(user).get().exists:
-        message = "user {} does not exist".format(user)
-        return render_template("homepage.html", message=message)
-    if not _artists.document(artist).get().exists:
-        message = "artist {} does not exist".format(artist)
-        return render_template("homepage.html", message=message)
+    user_ref = _users.document(user)
+    artist_ref = _artists.document(artist)
 
-    rating_ref = _users.document(user).collection("ratings").document(artist)
-    rating_body = {
-        "baddie": rating["baddie"],
-        "banger": rating["banger"],
-    }
+    if not user_ref.get().exists:
+        return render_template("homepage.html", message="user {} does not exist".format(user))
+    if not artist_ref.get().exists:
+        return render_template("homepage.html", message="artist {} does not exist".format(artist))
 
-    if rating_ref.get().exists:
-        rating_ref.set(rating_body)
-        # todo: update artist
+    user_body = user_ref.get().to_dict()
+    artist_body = artist_ref.get().to_dict()
+
+    if artist in user_body["ratings"]:
+        prev_baddie = user_body["ratings"][artist]["baddie"]
+        prev_banger = user_body["ratings"][artist]["banger"]
+        artist_body["sum_baddie"] += (baddie - prev_baddie)
+        artist_body["sum_banger"] += (banger - prev_banger)
+        key = str((baddie, banger))
+        prev_key = str((prev_baddie, prev_banger))
+        artist_body["ratings_data"][prev_key] -= 1
+        if key in artist_body["ratings_data"]:
+            artist_body["ratings_data"][key] += 1
+        else:
+            artist_body["ratings_data"][key] = 1
+        artist_ref.set(artist_body)
         message = "user {} rating successfully updated for artist {}".format(user, artist)
     else:
-        rating_ref.create(rating_body)
-        # todo: update artist
+        artist_body["num_ratings"] += 1
+        artist_body["sum_baddie"] += baddie
+        artist_body["sum_banger"] += banger
+        key = str((baddie, banger))
+        if key in artist_body["ratings_data"]:
+            artist_body["ratings_data"][key] += 1
+        else:
+            artist_body["ratings_data"][key] = 1
+        artist_ref.set(artist_body)
         message = "user {} rating successfully recorded for artist {}".format(user, artist)
+
+    user_body["ratings"][artist] = {
+        "baddie": baddie,
+        "banger": banger,
+    }
+    user_ref.set(user_body)
     return render_template("homepage.html", message=message)
 
 
@@ -150,8 +180,6 @@ def add_artist():
     if request.method == 'GET':
         return render_template("add-artist.html")
 
-    # todo: use spotify URI and use that to get the artist name
-    # todo: include a 31x31 array in artist information to store all ratings
     spotify = None
     try:
         spotify = request.form["spotify"]
@@ -177,10 +205,13 @@ def add_artist():
                 "sum_baddie": 0,
                 "sum_banger": 0,
                 "spotify": spotify,
+                "ratings_data": dict(),
             }, document_id=artist
         )
-        global artist_list # todo: make this into metadata in firestore
-        artist_list = sorted([doc.id for doc in _artists.list_documents()] + [""])
+        global all_artist_map
+        all_artist_map[artist] = spotify
+        all_artist_list.append(artist)
+        _artist_list.set({"artist_list": all_artist_map})
         message = "artist {} created".format(artist)
     except Conflict:  # google.cloud.exceptions.Conflict
         message = "artist {} already exists".format(artist)
@@ -196,7 +227,6 @@ def login():
         username = verify_password(login_info["username"], login_info["password"])
         if username is not None:
             session[session_user_key] = username
-            # todo: session expiration
             session[session_last_interacted_key] = int(time.time())
             print(session)
             return redirect(url_for("rate_artist"))
