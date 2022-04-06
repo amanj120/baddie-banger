@@ -171,7 +171,14 @@ def rate_artist():
 
 @app.route("/user-ratings/<user>", methods=['GET'])
 def get_user_ratings(user):
-    # todo: compile all ratings for a user into a single dictionary
+    user_ref = _users.document(user)
+    if not user_ref.get().exists:
+        return render_template("homepage.html", message="user {} does not exist".format(user))
+
+    ratings = user_ref.get().to_dict()["ratings"]
+    return render_template("user-ratings.html", user=user, ratings=ratings)
+    # todo: make pretty
+
     pass
 
 
@@ -198,7 +205,7 @@ def add_artist():
         message = "spotipy error: {}".format(err)
         return render_template("homepage.html", message=message)
 
-    try:
+    if artist not in all_artist_map:
         _artists.add(
             {
                 "num_ratings": 0,
@@ -208,12 +215,11 @@ def add_artist():
                 "ratings_data": dict(),
             }, document_id=artist
         )
-        global all_artist_map
         all_artist_map[artist] = spotify
         all_artist_list.append(artist)
         _artist_list.set({"artist_list": all_artist_map})
         message = "artist {} created".format(artist)
-    except Conflict:  # google.cloud.exceptions.Conflict
+    else:
         message = "artist {} already exists".format(artist)
     return render_template("homepage.html", message=message)
 
