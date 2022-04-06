@@ -1,6 +1,6 @@
 Design Decisions:
     - User Login or use IP
-        - use IP for now, we can add users later
+        - use Login
 
 use `pipreqs /path/to/project --force` to overwrite requirements.txt with accurate info
 
@@ -9,6 +9,7 @@ more APIs:
 https://cloud.google.com/python/docs/reference/firestore/latest
 
 https://firebase.google.com/docs/firestore/quotas
+
 
 
 
@@ -23,48 +24,6 @@ def get_random_unrated_artist():
 @app.route("/all-global-ratings", methods=['GET'])
 def get_all_global_ratings():
     get all ratings for all artists
-
-SQL Persistence Schema:
-TABLE: RATINGS
-|-- Rating ID (Key) --|-- User (Key) --|-- Timestamp --|-- Artist (Key) --|-- Baddie --|-- Banger --|
-* Currently, User is just IP Address
-* Rating ID is just an enumeration of the ratings, this might be an issue in the future
-
-TABLE: ARTISTS - need security for admin updating artist
-|-- Artist (Key) --|-- Spotify URL --|
-
-TABLE: USERS
-|-- User (Key) --|-- Password --|
-
-
-Firestore Persistence Schema (free):
-
-user-ratings (collection):
-    _metadata (document)
-        all-users (field) # list of all users
-    user-1 (document):
-        name (field)
-        password (field)
-        all-ratings (field)
-        ratings (collection): # note, you need to create a _dummy rating on creation of a user
-            id (document)
-                timestamp (field)
-                artist (field)
-                baddie (field)
-                banger (field)
-        ...
-    user-2
-    ...
-
-artists (collection):
-    _metadata (document)
-        all-artists (field) # list of all artists
-    artist-1 (document):
-        name (field)
-        spotify (field)
-        num-ratings (field)
-        sum-baddie (field)
-        sum-banger (field)
     ...
 
 

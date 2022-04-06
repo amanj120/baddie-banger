@@ -95,7 +95,7 @@ def create_user():
     except Conflict:
         message = "user already exists"
 
-    return render_template("homepage.html", message=message)
+    return login_logic(user, password)
 
 
 @app.route("/logout", methods=['GET'])
@@ -230,15 +230,19 @@ def login():
         return render_template("login.html")
     else:
         login_info = request.form
-        username = verify_password(login_info["username"], login_info["password"])
-        if username is not None:
-            session[session_user_key] = username
-            session[session_last_interacted_key] = int(time.time())
-            print(session)
-            return redirect(url_for("rate_artist"))
-        else:
-            message = "User could not be authenticated"
-            return render_template("homepage.html", message=message)
+        return login_logic(login_info["username"], login_info["password"])
+
+
+def login_logic(username, password):
+    username = verify_password(username, password)
+    if username is not None:
+        session[session_user_key] = username
+        session[session_last_interacted_key] = int(time.time())
+        print(session)
+        return redirect(url_for("rate_artist"))
+    else:
+        message = "User could not be authenticated"
+        return render_template("homepage.html", message=message)
 
 
 if __name__ == "__main__":
