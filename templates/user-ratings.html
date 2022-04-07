@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ user }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script src="{{ url_for('static', filename='user-ratings.js')}}"></script>
 </head>
 <body>
     <a href="http://localhost:5000/">Login</a>
@@ -10,9 +12,16 @@
     <a href="http://localhost:5000/rate-artist">Rate Artist</a>
     <a href="http://localhost:5000/add-artist">Add Artist</a>
     <h1>{{ user }}'s ratings:</h1>
-    <p>{{ ratings }}</p>
 
-<!--    <canvas id="artist_graph" width=750 height=750 style="border:1px solid #000000;"></canvas>-->
+    {% for artist in ratings %}
+        <img class="rating-chart" src={{artist.img}}>
+        <figcaption>{{ artist.name }}: baddie: {{artist.baddie}} banger: {{artist.baddie}}</figcaption>
+    {% endfor %}
+
+
+    <canvas id="artist_graph" width=1000 height=1000 style="border:3px solid #000;">
+        
+    </canvas>
 
 </body>
 </html>

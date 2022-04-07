@@ -175,7 +175,19 @@ def get_user_ratings(user):
     if not user_ref.get().exists:
         return render_template("homepage.html", message="user {} does not exist".format(user))
 
-    ratings = user_ref.get().to_dict()["ratings"]
+    client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
+    sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+
+    raw_ratings= user_ref.get().to_dict()["ratings"]
+    artists = raw_ratings.keys()
+    ratings = list()
+    for artist in artists:
+        ratings.append({
+                "name": artist,
+                "baddie": raw_ratings[artist]["baddie"],
+                "banger": raw_ratings[artist]["banger"],
+                "img": get_artist_image(sp, artist)
+            })
     return render_template("user-ratings.html", user=user, ratings=ratings)
     # todo: make pretty
 
@@ -243,6 +255,12 @@ def login_logic(username, password):
     else:
         message = "User could not be authenticated"
         return render_template("homepage.html", message=message)
+
+
+def get_artist_image(sp, artist):
+    artist = sp.artist(all_artist_map[artist])
+    artist_img = artist["images"][0]["url"]
+    return artist_img
 
 
 if __name__ == "__main__":
