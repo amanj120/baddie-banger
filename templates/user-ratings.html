@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>{{ user }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <script src="{{ url_for('static', filename='user-ratings.js')}}"></script>
+    <script src="{{ url_for('static', filename='js/user-ratings.js')}}"></script>
 </head>
 <body>
     <a href="http://localhost:5000/">Login</a>
@@ -14,7 +14,7 @@
     <h1>{{ user }}'s ratings:</h1>
 
     {% for artist in ratings %}
-        <img class="rating-chart" src={{artist.img}}>
+        <img class="rating-chart" src="{{ url_for('static', filename='')}}{{ artist.img }}">
         <figcaption>{{ artist.name }}: baddie: {{artist.baddie}} banger: {{artist.baddie}}</figcaption>
     {% endfor %}
 

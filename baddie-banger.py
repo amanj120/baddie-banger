@@ -3,6 +3,10 @@ import json
 import re
 from datetime import datetime
 import time
+import os
+from urllib.request import urlopen
+
+import requests
 
 import firebase_admin
 import spotipy
@@ -11,6 +15,7 @@ from firebase_admin import firestore
 from flask import Flask, request, render_template, redirect, url_for, session
 from google.cloud.exceptions import Conflict
 from spotipy.oauth2 import SpotifyClientCredentials
+from PIL import Image
 
 app = Flask(__name__)
 
@@ -169,6 +174,7 @@ def rate_artist():
     return render_template("homepage.html", message=message)
 
 
+# https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points
 @app.route("/user-ratings/<user>", methods=['GET'])
 def get_user_ratings(user):
     user_ref = _users.document(user)
@@ -178,16 +184,16 @@ def get_user_ratings(user):
     client_credentials_manager = SpotifyClientCredentials(client_id, client_secret)
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-    raw_ratings= user_ref.get().to_dict()["ratings"]
+    raw_ratings = user_ref.get().to_dict()["ratings"]
     artists = raw_ratings.keys()
     ratings = list()
     for artist in artists:
         ratings.append({
-                "name": artist,
-                "baddie": raw_ratings[artist]["baddie"],
-                "banger": raw_ratings[artist]["banger"],
-                "img": get_artist_image(sp, artist)
-            })
+            "name": artist,
+            "baddie": raw_ratings[artist]["baddie"],
+            "banger": raw_ratings[artist]["banger"],
+            "img": get_artist_image(sp, artist)
+        })
     return render_template("user-ratings.html", user=user, ratings=ratings)
     # todo: make pretty
 
@@ -258,9 +264,13 @@ def login_logic(username, password):
 
 
 def get_artist_image(sp, artist):
-    artist = sp.artist(all_artist_map[artist])
-    artist_img = artist["images"][0]["url"]
-    return artist_img
+    filepath = "images/{}.jpg".format(artist.replace(" ", "_"))
+    if not os.path.exists("static/{}".format(filepath)):
+        artist = sp.artist(all_artist_map[artist])
+        artist_img = artist["images"][0]["url"]
+        img = Image.open(urlopen(artist_img))
+        img.save(filepath)
+    return filepath
 
 
 if __name__ == "__main__":
